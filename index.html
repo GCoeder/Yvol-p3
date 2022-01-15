@@ -1,0 +1,174 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<div id = "chart" ></div>
+
+<form>
+<lable for="Stock">Stock Ticker:</lable>
+ <input type="text" id="appa" >
+ <button type="button" onclick="result()">Enter</button>
+</form>
+
+<!-- implement timeframe selection-->
+<label for= "Tframe"> Timeframe :</label>
+<select onchange="result()" name="tf_select" id="tf_select" >
+    <option value="Y5">5 years</option>
+    <option value="Y1">1 year</option>
+    <option value="YTD">YTD</option>
+    <option value="M6">6 months</option>
+    <option value="M1">1 month</option>
+</select>
+
+<ul id = "nnn">
+<li></li>
+</ul>
+
+<script>
+
+var page_url = "{% url 'apidata' %}";
+var csrf = '{% csrf_token %}';
+var news_url = "{% url 'paper' %}";
+var current_data = [];
+//Allow the page to update stock price with each changed interation
+    function result(){
+        
+        var tyme= document.getElementById("tf_select").value;
+        var sto= document.getElementById("appa").value;
+        if(sto == ""){
+            sto = "SPY";
+        }
+
+        $.ajax({ // begin ajax
+            url: page_url, 
+            cache: "false",
+            dataType:"json",
+            data: {stock: sto, span: tyme}, 
+            beforeSend: function(xhr){
+				  xhr.setRequestHeader('X-CSRFToken', $(csrf).val())
+			  },
+            success: function(data){
+                //alert(JSON.stringify(data));
+                current_data = data.price;
+                charting(data.price);
+            }
+
+        }); // end ajax
+    }
+result();
+    //Presented Data
+    dates = [
+    [1484505000000,150]
+    ];
+    //dates = clist
+
+
+//time-series chart layout code
+function charting(dates){
+    var sto= document.getElementById("appa").value;
+    $("#chart").html("");
+    var options = {
+          series: [{
+          name: sto,
+          data: dates
+        }],
+          chart: {
+          type: 'area',
+          stacked: false,
+          height: 350,
+          zoom: {
+            type: 'x',
+            enabled: true,
+            autoScaleYaxis: true
+          },
+          events: {
+            click: (event, chartContext, config) => {
+                var sel_date = current_data[config.dataPointIndex][0];
+                var sto= document.getElementById("appa").value;
+                // send new ajax request to view
+                $.ajax({
+                    url: news_url,
+                    cache: "false",
+                    dataType:"json",
+                    data: {date: sel_date, symbol: sto},
+                    beforeSend: function(xhr){
+				        xhr.setRequestHeader('X-CSRFToken', $(csrf).val())
+                    },
+                    success:function(data){
+                        alert(JSON.stringify(data));
+                        
+                          data.Snews.forEach((i) => {
+                            //alert(JSON.stringify(i.title));
+                            $('#nnn').append(
+                              "<li>" + "<a href = '" + i.url + "' >" + i.title + "</a></li>"
+                            );
+                          });
+
+                        
+                        
+
+                    }
+
+
+
+                });
+                
+            
+
+                //alert(current_data[config.dataPointIndex]);
+                console.log(chartContext, config);
+
+            }
+        
+        },
+          toolbar: {
+            autoSelected: 'zoom'
+          }
+        },
+        dataLabels: {
+          enabled: false
+        },
+        markers: {
+          size: 0,
+        },
+        title: {
+          text: 'Stock Price Movement',
+          align: 'left'
+        },
+        fill: {
+          type: 'gradient',
+          gradient: {
+            shadeIntensity: 1,
+            inverseColors: false,
+            opacityFrom: 0.5,
+            opacityTo: 0,
+            stops: [0, 90, 100]
+          },
+        },
+        yaxis: {
+          labels: {
+            formatter: function (val) {
+              return (val / 1).toFixed(0);
+            },
+          },
+          title: {
+            text: 'Price'
+          },
+        },
+        xaxis: {
+          type: 'datetime',
+        },
+        tooltip: {
+          shared: false,
+            y: {
+            formatter: function (val) {
+              return (val / 1).toFixed(0)
+             }
+            }
+        }
+        };
+        
+        var chart = new ApexCharts(document.querySelector("#chart"), options);
+        chart.render();
+
+    }
+    //charting(dates);
+</script>
